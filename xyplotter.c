@@ -24,6 +24,8 @@
 
 const char bobina_motor[] = "11000001";
 int posit_bobina_x = 0, posit_bobina_y = 0;
+int posit_x=0, posit_y=0;
+char px_mm[10], py_mm[10];
 
 /*configura pinos dos motores*/
 void motorInit(){
@@ -132,7 +134,7 @@ void buttonsInit(){
 
 /*inicializa todos os sensores da mesa xy*/
 void xyPlotterInit(){
-	TM_HD44780_Puts(0, 0, "Init sensores");
+	TM_HD44780_Puts(0, 0, "Init sensores...");
 	motorInit();
 	endInit();
 	joystickInit();
@@ -232,23 +234,29 @@ int readButtons(char button){
 void calibraZero(){
 	//move a mesa ate atingir as duas chaves de fim de curso
 	int i;
+	TM_HD44780_Clear();
+	TM_HD44780_Puts(0, 0, "Calibrando...");
 	while(!(readEnd('x')&&readEnd('y'))){
-		counterclockwise('x');
-		counterclockwise('y');
+		if(!readEnd('x')){
+			counterclockwise('x');
+		}
+		if(!readEnd('y')){
+			counterclockwise('y');
+		}
 	}
 	//apos o ajuste de zero, volta um pouco para liberar as chaves
 	for(i=10; i--;){
 		clockwise('x');
 		clockwise('y');
 	}
+	TM_HD44780_Clear();
+	TM_HD44780_Puts(0, 0, "Controle manual");
 	return;
 }
 
 /*controle manual via joystick e botoes*/
 void manualControl(){
 	int x, y, digital, b1, b2, end1, end2;
-	uint16_t _x=0, _y=0;
-	char px[10], py[10];
 
 	while(1){
 		x = posicaoJoystick('x');
@@ -268,23 +276,19 @@ void manualControl(){
     	if(x == 1||x == -1||y == 1||y == -1){
     		if(x==1){
     			clockwise('x');
-    			_x++;
     		}else if(x==-1){
     			counterclockwise('x');
-   				_x--;
     		}
     		if(y==1){
     			clockwise('y');
-    			_y++;
     		}else if(y==-1){
     			counterclockwise('y');
-    			_y--;
     		}
-    		sprintf(px, "x:%d", _x);
+    		/*sprintf(px, "x:%d", _x);
     		sprintf(py, "y:%d", _y);
     		TM_HD44780_Clear();
     		TM_HD44780_Puts(0, 0, px);
-    		TM_HD44780_Puts(0, 1, py);
+    		TM_HD44780_Puts(0, 1, py);*/
     	}
     	if(digital==1){
     		TM_HD44780_Clear();
@@ -329,6 +333,8 @@ void runClockwise(int passos, char eixo){
 				GPIO_WriteBit(MOTOR_PORT, MOTOR_A_PIN4, Bit_RESET);
 			}
 			posit_bobina_x++;
+			posit_x++;
+			atualizaDisplayDistancia();
 			Delayms(MOTOR_SPEED);
 		}
 	}else if(eixo == 'y'){
@@ -355,6 +361,8 @@ void runClockwise(int passos, char eixo){
 				GPIO_WriteBit(MOTOR_PORT, MOTOR_B_PIN4, Bit_RESET);
 			}
 			posit_bobina_y++;
+			posit_y++;
+			atualizaDisplayDistancia();
 			Delayms(MOTOR_SPEED);
 		}
 
@@ -389,6 +397,8 @@ void runCounterclockwise(int passos, char eixo){
 				GPIO_WriteBit(MOTOR_PORT, MOTOR_A_PIN1, Bit_RESET);
 			}
 			posit_bobina_x++;
+			posit_x--;
+			atualizaDisplayDistancia();
 			Delayms(MOTOR_SPEED);
 		}
 	}else if(eixo == 'y'){
@@ -415,6 +425,8 @@ void runCounterclockwise(int passos, char eixo){
 				GPIO_WriteBit(MOTOR_PORT, MOTOR_B_PIN1, Bit_RESET);
 			}
 			posit_bobina_y++;
+			posit_y--;
+			atualizaDisplayDistancia();
 			Delayms(MOTOR_SPEED);
 		}
 
@@ -431,56 +443,147 @@ void counterclockwise(char eixo){
 	runCounterclockwise(8, eixo);
 }
 
-
-/*busca (filtro) e retorna a distancia crua*/
-int getDistancia(){
-	int distancia = 0;
-	return distancia;
-}
-
-/*busca (filtro) e retorna tipo da unidade (polegada ou milimetro)*/
-char getUnidade(){
-	char unidade = ' ';
-	return unidade;
-}
-
-/*converte distancia em milimetro para passos*/
-int converteMilimetro(){
-	int distancia = PASSOS_mm*getDistancia();
-	return distancia;
-}
-
-/*converte distancia em polegada para passos*/
-int convertePolegada(){
-	int distancia = PASSOS_pol*getDistancia();
-	return distancia;
-}
-
-/*recebe a unidade (getUnidade) e converte para numero de passos utilizando runMotor()*/
-void setPassos(char direction){         //NAO SEI COMO DEFINIR ISSO TEM QUE SER ALGO DO GENERO (ATUAL - NOVO)
-	if(getUnidade() == 'm'){			//caso seja em milimetros
-		runMotor(converteMilimetro(), direction);
-	}else if(getUnidade() == 'p'){
-		runMotor(convertePolegada(), direction);
+/*converte distância em mm ou pol para passos a serem andados*/
+int convertePassos_Unidade(float distancia, char unidade){
+	if(unidade == 'm'){
+		distancia *= 1000;
+		int passos = distancia/21.25;
+		return passos;
+	}else if(unidade == 'p'){
+		return convertePassos_Unidade(25.40*distancia, 'm');
+	}else{
+		return 0;
 	}
 }
 
-/*recebe o numero de passos e chama countercw ou cw de acordo com o sentido(NAO PENSEI EM COMO DIFERENCIAR AINDA!!!!!!!!!!)*/
-void runMotor(int passos, char direction){
-	int i = passos;
-	if(direction == 'n'){
-		for(;i--;){
-			clockwise('y');
-		}
-	}else if(direction == 's'){
-		for(;i--;){
-			counterclockwise('y');
-		}
-	}else if(direction == 'l'){
-		for(;i--;){
-			clockwise('x');
-		}
-	}else if(direction == 'o'){
-			counterclockwise('x');
+/*converte quantidade de passos para distância em mm ou pol*/
+float converteUnidade_Passos(int passos, char unidade){
+	if(unidade == 'm'){
+		return passos*0.02125;
+	}else if(unidade == 'p'){
+		return passos*0.0008366;
+	}else{
+		return 0;
 	}
+}
+
+/*move a mesa em uma distancia relativa em mm ou pol*/
+/*'x' ou 'y' para escolher o eixo*/
+/*'+" para clockwise e '-' para counterclockwise*/
+void runDistancia_unidade(float distancia, char unidade, char eixo, char sentido){
+	int passos = convertePassos_Unidade(distancia, unidade);
+	if(sentido == '+'){
+		runClockwise(passos, eixo);
+	}else if(sentido == '-'){
+		runCounterclockwise(passos, eixo);
+	}
+}
+
+/*move a mesa para uma coordenada absoluta (x,y) em mm ou pol*/
+void moveParaXY(float coord_x, float coord_y, char unidade){
+	int abs_x = convertePassos_Unidade(coord_x, unidade);
+	int abs_y = convertePassos_Unidade(coord_y, unidade);
+	int passos_x, passos_y;
+	if(abs_x > posit_x){
+		passos_x = abs_x - posit_x;
+		runDistancia_unidade(converteUnidade_Passos(passos_x, unidade), unidade, 'x', '+');
+	}else{
+		passos_x = posit_x - abs_x;
+		runDistancia_unidade(converteUnidade_Passos(passos_x, unidade), unidade, 'x', '-');
+	}
+	if(abs_y > posit_y){
+		passos_y = abs_y - posit_y;
+		runDistancia_unidade(converteUnidade_Passos(passos_y, unidade), unidade, 'y', '+');
+	}else{
+		passos_y = posit_y - abs_y;
+		runDistancia_unidade(converteUnidade_Passos(passos_y, unidade), unidade, 'y', '-');
+	}
+}
+
+/*atualiza no display lcd a posição absoluta em mm*/
+void atualizaDisplayDistancia(void){
+	ftoa(px_mm, posit_x*0.02125, 5, 0);
+	ftoa(py_mm, posit_y*0.02125, 5, 0);
+
+	TM_HD44780_Clear();
+	TM_HD44780_Puts(0, 0, "x:");
+	TM_HD44780_Puts(0, 1, "y:");
+	TM_HD44780_Puts(12, 0, "mm");
+	TM_HD44780_Puts(12, 1, "mm");
+	TM_HD44780_Puts(3, 0, px_mm);
+	TM_HD44780_Puts(3, 1, py_mm);
+}
+
+/*funcao para converter float em string*/
+void reverse(char* p, char* q){
+	char c;
+	for(; p < q; ++p, --q){
+		c = *p;
+		*p = *q;
+		*q = c;
+	}
+}
+
+/*funcao para converter float em string*/
+char* inc(char* s, char* e){
+	int co = 1;
+	char* t = e;
+
+	//increase from end to start
+	for(; t >= s; --t){
+		if(*t == '.') continue;
+		*t += co;
+		if(*t > '9'){
+			*t = '0';
+			co = 1;
+		}
+		else{
+			co = 0;
+			break;
+		}
+	}
+	//check if there's still carry out
+	if(co){
+		for(t = ++e; t > s; --t) *t = *(t - 1);
+		*s = '1';
+	}
+	return e;
+}
+
+/*funcao para converter float em string*/
+char* ftoa(char* dest, double num, int afterPoint, int sign){
+	char* p = dest;
+	int integer = (int)num;
+	double decimal = num - integer;
+
+	//parse sign
+	if(sign && num > 0) *p++ = '+';
+	if(num < 0){
+		*p++ = '-';
+		integer = -integer;
+		decimal = -decimal;
+	}
+	//parse integer
+	if(integer){
+		char* q = p;
+		for(; integer; integer /= 10){
+			*q++ = '0' + integer % 10;
+		}
+		reverse(p, q - 1);
+		p = q;
+	}
+	else *p++ ='0';
+	//parse decimal
+	if(afterPoint > 0){
+		*p++ = '.';
+		for(; afterPoint; --afterPoint){
+			decimal *= 10;
+			*p++ = '0' + (int)decimal;
+			decimal -= (int)decimal;
+		}
+		if((int)(decimal + 0.5)) p = inc(dest, p - 1) + 1;
+	}
+
+	*p = '\0';
+	return dest;
 }
