@@ -1,44 +1,21 @@
-//MOTOR_A_PIN1	4	PE7
-//MOTOR_A_PIN2	5	PE9
-//MOTOR_A_PIN3	6	PE11
-//MOTOR_A_PIN4	7	PE13
-
-//MOTOR_B_PIN1	8	PE8
-//MOTOR_B_PIN2	9	PE10
-//MOTOR_B_PIN3	10	PE12
-//MOTOR_B_PIN4	11	PE14
-
-//END1			12 	PB11
-//END2			13 	PB12
-
-//JOYSTICK_X	A1 	PC4
-//JOYSTICK_Y	A0	PC5
-//JSBUTTON 			PC1
-
-//BUTTON1			PC2
-//BUTTON2			PC3
-
-//1 passo = 0,17mm
+/**
+ *	Engenharia Eletrica - Universidade Estadual de Londrina
+ *	Mesa xy automatizada microcontrolada com stm32f407vg
+ *
+ *	autor 		Ricardo Fujita; Guilherme Brandao da Silva; Giovani Augusto de Lima Freitas; Guilherme Almeida Pessoa
+ *	version		v1.0
+ *	ide			CooCox 1.7.7
+ *
+ */
 
 #include "xyplotter.h"
 
 const char bobina_motor[] = "11000001";
-int posit_bobina_x = 0, posit_bobina_y = 0;
+int bobina_x = 0, bobina_y = 0, bobina_caneta = 0;
 int posit_x=0, posit_y=0;
-char px_mm[10], py_mm[10];
 
 /*configura pinos dos motores*/
 void motorInit(){
-	//MOTOR_A_PIN1	PE7
-	//MOTOR_A_PIN2	PE9
-	//MOTOR_A_PIN3	PE11
-	//MOTOR_A_PIN4	PE13
-
-	//MOTOR_B_PIN1	PE8
-	//MOTOR_B_PIN2	PE10
-	//MOTOR_B_PIN3	PE12
-	//MOTOR_B_PIN4	PE14
-
 	GPIO_InitTypeDef config;
 
 	config.GPIO_Pin = MOTOR_A_PIN1|MOTOR_A_PIN2|MOTOR_A_PIN3|MOTOR_A_PIN4|MOTOR_B_PIN1|MOTOR_B_PIN2|MOTOR_B_PIN3|MOTOR_B_PIN4;
@@ -51,11 +28,22 @@ void motorInit(){
 	GPIO_Init(MOTOR_PORT, &config);							//inicializa pinos dos motores
 }
 
+/*configura pinos dos motores da caneta/drill*/
+void canetaInit(){
+	GPIO_InitTypeDef config;
+
+	config.GPIO_Pin = CANETA_PIN1|CANETA_PIN2|CANETA_PIN3|CANETA_PIN4;
+	config.GPIO_Mode = GPIO_Mode_OUT;
+	config.GPIO_Speed = GPIO_Speed_50MHz;
+	config.GPIO_OType = GPIO_OType_PP;
+	config.GPIO_PuPd = GPIO_PuPd_NOPULL;
+
+	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOA, ENABLE);
+	GPIO_Init(CANETA_PORT, &config);
+}
+
 /*configura pinos fim de curso*/
 void endInit(){
-	//END1 	PB11
-	//END2	PB12
-
 	GPIO_InitTypeDef config;
 
 	config.GPIO_Pin = END1|END2; //chave fim de curso
@@ -64,16 +52,12 @@ void endInit(){
 	config.GPIO_OType = GPIO_OType_PP;
 	config.GPIO_PuPd = GPIO_PuPd_UP;
 
-	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOB, ENABLE);	//liga clock barramento AHB1 GPIOB
+	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOB, ENABLE);
 	GPIO_Init(END_PORT, &config);
 }
 
 /*configura joystick*/
 void joystickInit(){
-	//JOYSTICK_X	PC4 (ADC)
-	//JOYSTICK_Y	PC5	(ADC)
-	//JOYSTICK_BUT	PC1	(DIGITAL IN)
-
 	GPIO_InitTypeDef initPinADC;	//configura analogicos xy do joystick
 	ADC_CommonInitTypeDef commonADC;
 	ADC_InitTypeDef initADC;
@@ -117,9 +101,6 @@ void joystickInit(){
 
 /*configura pushbuttons*/
 void buttonsInit(){
-	//BUTTON_1	PC2
-	//BUTTON_2	PC3
-
 	GPIO_InitTypeDef config;
 
 	config.GPIO_Pin = BUTTON1|BUTTON2;
@@ -134,11 +115,24 @@ void buttonsInit(){
 
 /*inicializa todos os sensores da mesa xy*/
 void xyPlotterInit(){
+	uint8_t customChar[] = {
+        0x03,
+        0x06,
+        0x0C,
+        0x1F,
+        0x1F,
+        0x0C,
+        0x06,
+        0x03
+    };
+    TM_HD44780_CreateChar(0, &customChar[0]);
 	TM_HD44780_Puts(0, 0, "Init sensores...");
 	motorInit();
+	canetaInit();
 	endInit();
 	joystickInit();
 	buttonsInit();
+	Delayms(250);
 }
 
 /*seleciona qual porta do ADC1 sera lida*/
@@ -245,13 +239,37 @@ void calibraZero(){
 		}
 	}
 	//apos o ajuste de zero, volta um pouco para liberar as chaves
-	for(i=10; i--;){
+	for(i=15; i--;){
 		clockwise('x');
 		clockwise('y');
 	}
 	TM_HD44780_Clear();
-	TM_HD44780_Puts(0, 0, "Controle manual");
-	return;
+	TM_HD44780_Puts(0, 0, "Mesa calibrada");
+	Delayms(250);
+	posit_x=0;
+	posit_y=0;
+}
+
+/*ajusta altura da caneta/drill manualmente*/
+void calibraCaneta(void){
+	int b1, b2, digital=0;
+
+	TM_HD44780_Clear();
+	TM_HD44780_Puts(0, 0, "CALIBRE EIXO Z");
+	TM_HD44780_Puts(0, 1, "Digital = OK");
+
+	while(!digital){
+    	digital = readJSButton();
+    	b1 = readButtons('1');
+    	b2 = readButtons('2');
+
+    	if(b1){
+    		runCaneta(1, '+');
+    	}else if(b2){
+    		runCaneta(1, '-');
+    	}
+	}
+	TM_HD44780_Clear();
 }
 
 /*controle manual via joystick e botoes*/
@@ -270,38 +288,97 @@ void manualControl(){
     	if(end1||end2){
     		TM_HD44780_Clear();
     		TM_HD44780_Puts(0, 0, "FIM DE CURSO");
+    		TM_HD44780_Puts(0, 1, "RESETE A MESA");
     		return;
     	}
 
     	if(x == 1||x == -1||y == 1||y == -1){
     		if(x==1){
-    			clockwise('x');
+    			runClockwise2(1, 'x');
     		}else if(x==-1){
-    			counterclockwise('x');
+    			runCounterclockwise2(1, 'x');
     		}
     		if(y==1){
-    			clockwise('y');
+    			runClockwise2(1, 'y');
     		}else if(y==-1){
-    			counterclockwise('y');
+    			runCounterclockwise2(1, 'y');
     		}
-    		/*sprintf(px, "x:%d", _x);
-    		sprintf(py, "y:%d", _y);
-    		TM_HD44780_Clear();
-    		TM_HD44780_Puts(0, 0, px);
-    		TM_HD44780_Puts(0, 1, py);*/
     	}
+
     	if(digital==1){
     		TM_HD44780_Clear();
-    		TM_HD44780_Puts(0, 0, "DRILL ON/OFF");
+    		TM_HD44780_Puts(0, 0, "MARCAR");
+    		setFura();
     	}
     	if(b1==1){
     		TM_HD44780_Clear();
     		TM_HD44780_Puts(0, 0, "DESCER DRILL");
+    		runCaneta(1, '+');
     	}
     	if(b2==1){
     		TM_HD44780_Clear();
     		TM_HD44780_Puts(0, 0, "SUBIR DRILL");
+    		runCaneta(1, '-');
     	}
+	}
+}
+
+ /*movimenta a caneta*/
+void runCaneta(int passos, char dir){
+	int times = 0;
+
+	if(dir == '+'){
+		for(;times<passos;times++){
+			bobina_caneta %= 8;
+			if(bobina_motor[bobina_caneta] == '1'){
+				GPIO_WriteBit(CANETA_PORT, CANETA_PIN1, Bit_SET);
+			}else{
+				GPIO_WriteBit(CANETA_PORT, CANETA_PIN1, Bit_RESET);
+			}
+			if(bobina_motor[(bobina_caneta+6)%8] == '1'){
+				GPIO_WriteBit(CANETA_PORT, CANETA_PIN2, Bit_SET);
+			}else{
+				GPIO_WriteBit(CANETA_PORT, CANETA_PIN2, Bit_RESET);
+			}
+			if(bobina_motor[(bobina_caneta+4)%8] == '1'){
+				GPIO_WriteBit(CANETA_PORT, CANETA_PIN3, Bit_SET);
+			}else{
+				GPIO_WriteBit(CANETA_PORT, CANETA_PIN3, Bit_RESET);
+			}
+			if(bobina_motor[(bobina_caneta+2)%8] == '1'){
+				GPIO_WriteBit(CANETA_PORT, CANETA_PIN4, Bit_SET);
+			}else{
+				GPIO_WriteBit(CANETA_PORT, CANETA_PIN4, Bit_RESET);
+			}
+			bobina_caneta++;
+			Delayms(CANETA_SPEED);
+		}
+	}else if(dir == '-'){
+		for(;times<passos;times++){
+			bobina_caneta %= 8;
+			if(bobina_motor[bobina_caneta] == '1'){
+				GPIO_WriteBit(CANETA_PORT, CANETA_PIN4, Bit_SET);
+			}else{
+				GPIO_WriteBit(CANETA_PORT, CANETA_PIN4, Bit_RESET);
+			}
+			if(bobina_motor[(bobina_caneta+6)%8] == '1'){
+				GPIO_WriteBit(CANETA_PORT, CANETA_PIN3, Bit_SET);
+			}else{
+				GPIO_WriteBit(CANETA_PORT, CANETA_PIN3, Bit_RESET);
+			}
+			if(bobina_motor[(bobina_caneta+4)%8] == '1'){
+				GPIO_WriteBit(CANETA_PORT, CANETA_PIN2, Bit_SET);
+			}else{
+				GPIO_WriteBit(CANETA_PORT, CANETA_PIN2, Bit_RESET);
+			}
+			if(bobina_motor[(bobina_caneta+2)%8] == '1'){
+				GPIO_WriteBit(CANETA_PORT, CANETA_PIN1, Bit_SET);
+			}else{
+				GPIO_WriteBit(CANETA_PORT, CANETA_PIN1, Bit_RESET);
+			}
+			bobina_caneta++;
+			Delayms(CANETA_SPEED);
+		}
 	}
 }
 
@@ -311,62 +388,124 @@ void runClockwise(int passos, char eixo){
 
 	if(eixo == 'x'){
 		for(;times<passos;times++){
-			posit_bobina_x %= 8;
-			if(bobina_motor[posit_bobina_x] == '1'){
+			bobina_x %= 8;
+			if(bobina_motor[bobina_x] == '1'){
 				GPIO_WriteBit(MOTOR_PORT, MOTOR_A_PIN1, Bit_SET);
 			}else{
 				GPIO_WriteBit(MOTOR_PORT, MOTOR_A_PIN1, Bit_RESET);
 			}
-			if(bobina_motor[(posit_bobina_x+6)%8] == '1'){
+			if(bobina_motor[(bobina_x+6)%8] == '1'){
 				GPIO_WriteBit(MOTOR_PORT, MOTOR_A_PIN2, Bit_SET);
 			}else{
 				GPIO_WriteBit(MOTOR_PORT, MOTOR_A_PIN2, Bit_RESET);
 			}
-			if(bobina_motor[(posit_bobina_x+4)%8] == '1'){
+			if(bobina_motor[(bobina_x+4)%8] == '1'){
 				GPIO_WriteBit(MOTOR_PORT, MOTOR_A_PIN3, Bit_SET);
 			}else{
 				GPIO_WriteBit(MOTOR_PORT, MOTOR_A_PIN3, Bit_RESET);
 			}
-			if(bobina_motor[(posit_bobina_x+2)%8] == '1'){
+			if(bobina_motor[(bobina_x+2)%8] == '1'){
 				GPIO_WriteBit(MOTOR_PORT, MOTOR_A_PIN4, Bit_SET);
 			}else{
 				GPIO_WriteBit(MOTOR_PORT, MOTOR_A_PIN4, Bit_RESET);
 			}
-			posit_bobina_x++;
+			bobina_x++;
+			posit_x++;
+			Delayms(MOTOR_SPEED);
+		}
+	}else if(eixo == 'y'){
+		for(;times<passos;times++){
+			bobina_y %= 8;
+			if(bobina_motor[bobina_y] == '1'){
+				GPIO_WriteBit(MOTOR_PORT, MOTOR_B_PIN1, Bit_SET);
+			}else{
+				GPIO_WriteBit(MOTOR_PORT, MOTOR_B_PIN1, Bit_RESET);
+			}
+			if(bobina_motor[(bobina_y+6)%8] == '1'){
+				GPIO_WriteBit(MOTOR_PORT, MOTOR_B_PIN2, Bit_SET);
+			}else{
+				GPIO_WriteBit(MOTOR_PORT, MOTOR_B_PIN2, Bit_RESET);
+			}
+			if(bobina_motor[(bobina_y+4)%8] == '1'){
+				GPIO_WriteBit(MOTOR_PORT, MOTOR_B_PIN3, Bit_SET);
+			}else{
+				GPIO_WriteBit(MOTOR_PORT, MOTOR_B_PIN3, Bit_RESET);
+			}
+			if(bobina_motor[(bobina_y+2)%8] == '1'){
+				GPIO_WriteBit(MOTOR_PORT, MOTOR_B_PIN4, Bit_SET);
+			}else{
+				GPIO_WriteBit(MOTOR_PORT, MOTOR_B_PIN4, Bit_RESET);
+			}
+			bobina_y++;
+			posit_y++;
+			Delayms(MOTOR_SPEED);
+		}
+
+	}
+}
+
+/*movimenta a mesa no sentido positivo*/
+/*atualiza posicao no display*/
+void runClockwise2(int passos, char eixo){
+	int times = 0;
+
+	if(eixo == 'x'){
+		for(;times<passos;times++){
+			bobina_x %= 8;
+			if(bobina_motor[bobina_x] == '1'){
+				GPIO_WriteBit(MOTOR_PORT, MOTOR_A_PIN1, Bit_SET);
+			}else{
+				GPIO_WriteBit(MOTOR_PORT, MOTOR_A_PIN1, Bit_RESET);
+			}
+			if(bobina_motor[(bobina_x+6)%8] == '1'){
+				GPIO_WriteBit(MOTOR_PORT, MOTOR_A_PIN2, Bit_SET);
+			}else{
+				GPIO_WriteBit(MOTOR_PORT, MOTOR_A_PIN2, Bit_RESET);
+			}
+			if(bobina_motor[(bobina_x+4)%8] == '1'){
+				GPIO_WriteBit(MOTOR_PORT, MOTOR_A_PIN3, Bit_SET);
+			}else{
+				GPIO_WriteBit(MOTOR_PORT, MOTOR_A_PIN3, Bit_RESET);
+			}
+			if(bobina_motor[(bobina_x+2)%8] == '1'){
+				GPIO_WriteBit(MOTOR_PORT, MOTOR_A_PIN4, Bit_SET);
+			}else{
+				GPIO_WriteBit(MOTOR_PORT, MOTOR_A_PIN4, Bit_RESET);
+			}
+			bobina_x++;
 			posit_x++;
 			atualizaDisplayDistancia();
 			Delayms(MOTOR_SPEED);
 		}
 	}else if(eixo == 'y'){
 		for(;times<passos;times++){
-			posit_bobina_y %= 8;
-			if(bobina_motor[posit_bobina_y] == '1'){
+			bobina_y %= 8;
+			if(bobina_motor[bobina_y] == '1'){
 				GPIO_WriteBit(MOTOR_PORT, MOTOR_B_PIN1, Bit_SET);
 			}else{
 				GPIO_WriteBit(MOTOR_PORT, MOTOR_B_PIN1, Bit_RESET);
 			}
-			if(bobina_motor[(posit_bobina_y+6)%8] == '1'){
+			if(bobina_motor[(bobina_y+6)%8] == '1'){
 				GPIO_WriteBit(MOTOR_PORT, MOTOR_B_PIN2, Bit_SET);
 			}else{
 				GPIO_WriteBit(MOTOR_PORT, MOTOR_B_PIN2, Bit_RESET);
 			}
-			if(bobina_motor[(posit_bobina_y+4)%8] == '1'){
+			if(bobina_motor[(bobina_y+4)%8] == '1'){
 				GPIO_WriteBit(MOTOR_PORT, MOTOR_B_PIN3, Bit_SET);
 			}else{
 				GPIO_WriteBit(MOTOR_PORT, MOTOR_B_PIN3, Bit_RESET);
 			}
-			if(bobina_motor[(posit_bobina_y+2)%8] == '1'){
+			if(bobina_motor[(bobina_y+2)%8] == '1'){
 				GPIO_WriteBit(MOTOR_PORT, MOTOR_B_PIN4, Bit_SET);
 			}else{
 				GPIO_WriteBit(MOTOR_PORT, MOTOR_B_PIN4, Bit_RESET);
 			}
-			posit_bobina_y++;
+			bobina_y++;
 			posit_y++;
 			atualizaDisplayDistancia();
 			Delayms(MOTOR_SPEED);
 		}
-
-	}
+	}	
 }
 
 /*movimenta a mesa no sentido negativo*/
@@ -375,61 +514,123 @@ void runCounterclockwise(int passos, char eixo){
 
 	if(eixo == 'x'){
 		for(;times<passos;times++){
-			posit_bobina_x %= 8;
-			if(bobina_motor[posit_bobina_x] == '1'){
+			bobina_x %= 8;
+			if(bobina_motor[bobina_x] == '1'){
 				GPIO_WriteBit(MOTOR_PORT, MOTOR_A_PIN4, Bit_SET);
 			}else{
 				GPIO_WriteBit(MOTOR_PORT, MOTOR_A_PIN4, Bit_RESET);
 			}
-			if(bobina_motor[(posit_bobina_x+6)%8] == '1'){
+			if(bobina_motor[(bobina_x+6)%8] == '1'){
 				GPIO_WriteBit(MOTOR_PORT, MOTOR_A_PIN3, Bit_SET);
 			}else{
 				GPIO_WriteBit(MOTOR_PORT, MOTOR_A_PIN3, Bit_RESET);
 			}
-			if(bobina_motor[(posit_bobina_x+4)%8] == '1'){
+			if(bobina_motor[(bobina_x+4)%8] == '1'){
 				GPIO_WriteBit(MOTOR_PORT, MOTOR_A_PIN2, Bit_SET);
 			}else{
 				GPIO_WriteBit(MOTOR_PORT, MOTOR_A_PIN2, Bit_RESET);
 			}
-			if(bobina_motor[(posit_bobina_x+2)%8] == '1'){
+			if(bobina_motor[(bobina_x+2)%8] == '1'){
 				GPIO_WriteBit(MOTOR_PORT, MOTOR_A_PIN1, Bit_SET);
 			}else{
 				GPIO_WriteBit(MOTOR_PORT, MOTOR_A_PIN1, Bit_RESET);
 			}
-			posit_bobina_x++;
+			bobina_x++;
+			posit_x--;
+			Delayms(MOTOR_SPEED);
+		}
+	}else if(eixo == 'y'){
+		for(;times<passos;times++){
+			bobina_y %= 8;
+			if(bobina_motor[bobina_y] == '1'){
+				GPIO_WriteBit(MOTOR_PORT, MOTOR_B_PIN4, Bit_SET);
+			}else{
+				GPIO_WriteBit(MOTOR_PORT, MOTOR_B_PIN4, Bit_RESET);
+			}
+			if(bobina_motor[(bobina_y+6)%8] == '1'){
+				GPIO_WriteBit(MOTOR_PORT, MOTOR_B_PIN3, Bit_SET);
+			}else{
+				GPIO_WriteBit(MOTOR_PORT, MOTOR_B_PIN3, Bit_RESET);
+			}
+			if(bobina_motor[(bobina_y+4)%8] == '1'){
+				GPIO_WriteBit(MOTOR_PORT, MOTOR_B_PIN2, Bit_SET);
+			}else{
+				GPIO_WriteBit(MOTOR_PORT, MOTOR_B_PIN2, Bit_RESET);
+			}
+			if(bobina_motor[(bobina_y+2)%8] == '1'){
+				GPIO_WriteBit(MOTOR_PORT, MOTOR_B_PIN1, Bit_SET);
+			}else{
+				GPIO_WriteBit(MOTOR_PORT, MOTOR_B_PIN1, Bit_RESET);
+			}
+			bobina_y++;
+			posit_y--;
+			Delayms(MOTOR_SPEED);
+		}
+
+	}
+}
+
+/*movimenta a mesa no sentido negativo*/
+/*atualiza posicao no display*/
+void runCounterclockwise2(int passos, char eixo){
+	int times = 0;
+
+	if(eixo == 'x'){
+		for(;times<passos;times++){
+			bobina_x %= 8;
+			if(bobina_motor[bobina_x] == '1'){
+				GPIO_WriteBit(MOTOR_PORT, MOTOR_A_PIN4, Bit_SET);
+			}else{
+				GPIO_WriteBit(MOTOR_PORT, MOTOR_A_PIN4, Bit_RESET);
+			}
+			if(bobina_motor[(bobina_x+6)%8] == '1'){
+				GPIO_WriteBit(MOTOR_PORT, MOTOR_A_PIN3, Bit_SET);
+			}else{
+				GPIO_WriteBit(MOTOR_PORT, MOTOR_A_PIN3, Bit_RESET);
+			}
+			if(bobina_motor[(bobina_x+4)%8] == '1'){
+				GPIO_WriteBit(MOTOR_PORT, MOTOR_A_PIN2, Bit_SET);
+			}else{
+				GPIO_WriteBit(MOTOR_PORT, MOTOR_A_PIN2, Bit_RESET);
+			}
+			if(bobina_motor[(bobina_x+2)%8] == '1'){
+				GPIO_WriteBit(MOTOR_PORT, MOTOR_A_PIN1, Bit_SET);
+			}else{
+				GPIO_WriteBit(MOTOR_PORT, MOTOR_A_PIN1, Bit_RESET);
+			}
+			bobina_x++;
 			posit_x--;
 			atualizaDisplayDistancia();
 			Delayms(MOTOR_SPEED);
 		}
 	}else if(eixo == 'y'){
 		for(;times<passos;times++){
-			posit_bobina_y %= 8;
-			if(bobina_motor[posit_bobina_y] == '1'){
+			bobina_y %= 8;
+			if(bobina_motor[bobina_y] == '1'){
 				GPIO_WriteBit(MOTOR_PORT, MOTOR_B_PIN4, Bit_SET);
 			}else{
 				GPIO_WriteBit(MOTOR_PORT, MOTOR_B_PIN4, Bit_RESET);
 			}
-			if(bobina_motor[(posit_bobina_y+6)%8] == '1'){
+			if(bobina_motor[(bobina_y+6)%8] == '1'){
 				GPIO_WriteBit(MOTOR_PORT, MOTOR_B_PIN3, Bit_SET);
 			}else{
 				GPIO_WriteBit(MOTOR_PORT, MOTOR_B_PIN3, Bit_RESET);
 			}
-			if(bobina_motor[(posit_bobina_y+4)%8] == '1'){
+			if(bobina_motor[(bobina_y+4)%8] == '1'){
 				GPIO_WriteBit(MOTOR_PORT, MOTOR_B_PIN2, Bit_SET);
 			}else{
 				GPIO_WriteBit(MOTOR_PORT, MOTOR_B_PIN2, Bit_RESET);
 			}
-			if(bobina_motor[(posit_bobina_y+2)%8] == '1'){
+			if(bobina_motor[(bobina_y+2)%8] == '1'){
 				GPIO_WriteBit(MOTOR_PORT, MOTOR_B_PIN1, Bit_SET);
 			}else{
 				GPIO_WriteBit(MOTOR_PORT, MOTOR_B_PIN1, Bit_RESET);
 			}
-			posit_bobina_y++;
+			bobina_y++;
 			posit_y--;
 			atualizaDisplayDistancia();
 			Delayms(MOTOR_SPEED);
 		}
-
 	}
 }
 
@@ -468,14 +669,15 @@ float converteUnidade_Passos(int passos, char unidade){
 }
 
 /*move a mesa em uma distancia relativa em mm ou pol*/
+/*atualiza no display a posição simultaneamente*/
 /*'x' ou 'y' para escolher o eixo*/
 /*'+" para clockwise e '-' para counterclockwise*/
 void runDistancia_unidade(float distancia, char unidade, char eixo, char sentido){
 	int passos = convertePassos_Unidade(distancia, unidade);
 	if(sentido == '+'){
-		runClockwise(passos, eixo);
+		runClockwise2(passos, eixo);
 	}else if(sentido == '-'){
-		runCounterclockwise(passos, eixo);
+		runCounterclockwise2(passos, eixo);
 	}
 }
 
@@ -502,14 +704,16 @@ void moveParaXY(float coord_x, float coord_y, char unidade){
 
 /*atualiza no display lcd a posição absoluta em mm*/
 void atualizaDisplayDistancia(void){
-	ftoa(px_mm, posit_x*0.02125, 5, 0);
-	ftoa(py_mm, posit_y*0.02125, 5, 0);
+	char px_mm[10], py_mm[10];
+
+	ftoa(px_mm, posit_x*0.02125, 2, 0);
+	ftoa(py_mm, posit_y*0.02125, 2, 0);
 
 	TM_HD44780_Clear();
 	TM_HD44780_Puts(0, 0, "x:");
 	TM_HD44780_Puts(0, 1, "y:");
-	TM_HD44780_Puts(12, 0, "mm");
-	TM_HD44780_Puts(12, 1, "mm");
+	TM_HD44780_Puts(9, 0, "mm");
+	TM_HD44780_Puts(9, 1, "mm");
 	TM_HD44780_Puts(3, 0, px_mm);
 	TM_HD44780_Puts(3, 1, py_mm);
 }
@@ -586,4 +790,102 @@ char* ftoa(char* dest, double num, int afterPoint, int sign){
 
 	*p = '\0';
 	return dest;
+}
+
+/*marca um ponto com a caneta, abaixa e sobe*/
+void setFura(void){
+	runCaneta(301, '+');
+
+	runClockwise(32, 'x');
+	runClockwise(32, 'y');
+	runCounterclockwise2(64, 'x');
+	runCounterclockwise2(64, 'y');
+	runClockwise(32, 'x');
+	runClockwise(32, 'y');
+
+	Delayms(2);
+	runCaneta(300, '-');
+}
+
+/*abaixa em um passo a caneta*/
+void setAbaixaCaneta(void){
+	runCaneta(301, '+');
+	Delayms(2);
+}
+
+/*sobe em um passo a caneta*/
+void setSobeCaneta(void){
+	runCaneta(300, '-');
+	Delayms(2);
+}
+
+/*desenha um quadrado 3cm x 3 cm*/
+void setDesenhaQuadrado(void){
+	setAbaixaCaneta();
+	moveParaXY(30, 0, 'm');
+	moveParaXY(30, 30, 'm');
+	moveParaXY(0, 30, 'm');
+	moveParaXY(0, 0, 'm');
+	setSobeCaneta();
+}
+
+/*dado dois arrays com coordenadas x e y, perfura todos os pontos*/
+void setPerfura(float x[], float y[], int n){
+	int i = 0;
+	char str[20];
+
+	sprintf(str, "%d FUROS", n-i);
+	TM_HD44780_Clear();
+	TM_HD44780_Puts(0, 0, str);
+	TM_HD44780_Puts(0, 1, "RESTANTES");
+
+	for(; i<n; i++){
+		moveParaXY(x[i], y[i], 'm');
+		setFura();
+		sprintf(str, "%d FUROS", n-i);
+		TM_HD44780_Clear();
+		TM_HD44780_Puts(0, 0, str);
+		TM_HD44780_Puts(0, 1, "RESTANTES");
+
+	}
+	TM_HD44780_Clear();
+	TM_HD44780_Puts(0, 3, "PERFURACAO");
+	TM_HD44780_Puts(0, 5, "COMPLETA");
+}
+
+/*menu interativo com o usuário com escolha de modo automático ou manual*/
+/*APRIMORAR E TESTAR*/
+void menu(void){
+    int b1, b2, digital = 0;
+    int menu = 0;
+
+	while(!digital){
+        digital = readJSButton();
+        b1 = readButtons('1');
+        b2 = readButtons('2');
+
+        if(b1||b2){
+        	menu++;
+        	menu %= 2;
+        }
+
+        if(menu == 0){
+            TM_HD44780_Clear();
+            TM_HD44780_Puts(0, 0, "MODO AUTONOMO");
+            TM_HD44780_PutCustom(15, 0, 0);
+            TM_HD44780_Puts(0, 1, "MODO MANUAL");
+        }else if(menu == 1){
+            TM_HD44780_Clear();
+            TM_HD44780_Puts(0, 0, "MODO AUTONOMO");
+            TM_HD44780_Puts(0, 1, "MODO MANUAL");
+            TM_HD44780_PutCustom(15, 1, 0);
+        }
+    TM_HD44780_Clear();
+	}
+
+	if(menu == 0){
+		setDesenhaQuadrado();
+	}else if(menu == 1){
+		manualControl();
+	}
 }
