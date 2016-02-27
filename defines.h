@@ -1,38 +1,21 @@
 /**
- *  Defines for your entire project at one place
+ *	Engenharia Eletrica - Universidade Estadual de Londrina
+ *	Mesa xy automatizada microcontrolada com stm32f407vg
  *
- *	@author 	Tilen Majerle
- *	@email		tilen@majerle.eu
- *	@website	http://stm32f4-discovery.com
- *	@version 	v1.0
- *	@ide		Keil uVision 5
- *	@license	GNU GPL v3
+ *	autor 		Ricardo Fujita; Guilherme Brandao da Silva; Giovani Augusto de Lima Freitas; Guilherme Almeida Pessoa
+ *	version		v1.0
+ *	ide			CooCox 1.7.7
  *
- * |----------------------------------------------------------------------
- * | Copyright (C) Tilen Majerle, 2014
- * |
- * | This program is free software: you can redistribute it and/or modify
- * | it under the terms of the GNU General Public License as published by
- * | the Free Software Foundation, either version 3 of the License, or
- * | any later version.
- * |
- * | This program is distributed in the hope that it will be useful,
- * | but WITHOUT ANY WARRANTY; without even the implied warranty of
- * | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * | GNU General Public License for more details.
- * |
- * | You should have received a copy of the GNU General Public License
- * | along with this program.  If not, see <http://www.gnu.org/licenses/>.
- * |----------------------------------------------------------------------
  */
 
 #ifndef TM_DEFINES_H
 #define TM_DEFINES_H
 
-/* Defines globais */
+/*Defines globais*/
 
 //delay para acionamento dos motores
-#define MOTOR_SPEED 3	//tempo em ms do motor
+#define MOTOR_SPEED 3	//tempo em ms do motor da mesa
+#define CANETA_SPEED 1 	//tempo em ms do motor da caneta/drill
 
 //constante de conversao de passos
 #define PASSOS_mm	6	//6 passos = 1 mm
@@ -48,6 +31,12 @@
 #define	MOTOR_B_PIN2	GPIO_Pin_10
 #define	MOTOR_B_PIN3	GPIO_Pin_12
 #define	MOTOR_B_PIN4	GPIO_Pin_14
+
+#define CANETA_PORT 	GPIOA
+#define CANETA_PIN1		GPIO_Pin_1
+#define CANETA_PIN2		GPIO_Pin_3
+#define CANETA_PIN3		GPIO_Pin_5
+#define CANETA_PIN4		GPIO_Pin_7
 
 //pinagem fim de curso
 #define END_PORT		GPIOB
