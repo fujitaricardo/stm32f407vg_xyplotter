@@ -1,10 +1,10 @@
 /**
- *	Engenharia Eletrica - Universidade Estadual de Londrina
- *	Mesa xy automatizada microcontrolada com stm32f407vg
+ *  Engenharia Eletrica - Universidade Estadual de Londrina
+ *  Mesa xy automatizada microcontrolada com stm32f407vg
  *
- *	autor 		Ricardo Fujita; Guilherme Brandao da Silva; Giovani Augusto de Lima Freitas; Guilherme Almeida Pessoa
- *	version		v1.0
- *	ide			CooCox 1.7.7
+ *	autores     Giovani Augusto de Lima Freitas; Guilherme Almeida Pessoa; Guilherme Brandao da Silva; Ricardo Fujita
+ *	version     v1.0
+ *	ide         CooCox 1.7.7
  *
  */
 
@@ -127,8 +127,8 @@ void xyPlotterInit(){
     };
 
 	SystemInit();
-    TM_HD44780_Init(16, 2);
-    TM_HD44780_CreateChar(0, &customChar[0]);
+	TM_HD44780_Init(16, 2);
+    	TM_HD44780_CreateChar(0, &customChar[0]);
 	TM_HD44780_Puts(0, 0, "Init sensores...");
 	motorInit();
 	canetaInit();
@@ -141,9 +141,9 @@ void xyPlotterInit(){
 /*seleciona qual porta do ADC1 sera lida*/
 uint16_t readADC(uint8_t channel){
 	ADC_RegularChannelConfig(ADC1, channel, 1, ADC_SampleTime_480Cycles);
-	ADC_SoftwareStartConv(ADC1);								//comeca conversao no pino channel
-	while(ADC_GetFlagStatus(ADC1, ADC_FLAG_EOC) == RESET);		//espera conversao acabar
-	return ADC_GetConversionValue(ADC1);						//retorna valor lido
+	ADC_SoftwareStartConv(ADC1);				//comeca conversao no pino channel
+	while(ADC_GetFlagStatus(ADC1, ADC_FLAG_EOC) == RESET);	//espera conversao acabar
+	return ADC_GetConversionValue(ADC1);			//retorna valor lido
 }
 
 /*le o AD de um dos eixos analogicos do joystick*/
