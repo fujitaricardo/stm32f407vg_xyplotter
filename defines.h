@@ -22,7 +22,7 @@
 #define PASSOS_pol	150	//150 passos = 1 pol
 
 //pinagem motores
-#define MOTOR_PORT		GPIOE
+#define MOTOR_PORT    GPIOE
 #define MOTOR_A_PIN1	GPIO_Pin_7
 #define	MOTOR_A_PIN2	GPIO_Pin_9
 #define	MOTOR_A_PIN3	GPIO_Pin_11
