@@ -125,6 +125,9 @@ void xyPlotterInit(){
         0x06,
         0x03
     };
+
+	SystemInit();
+    TM_HD44780_Init(16, 2);
     TM_HD44780_CreateChar(0, &customChar[0]);
 	TM_HD44780_Puts(0, 0, "Init sensores...");
 	motorInit();
@@ -270,6 +273,7 @@ void calibraCaneta(void){
     	}
 	}
 	TM_HD44780_Clear();
+	runCaneta(300, '-');
 }
 
 /*controle manual via joystick e botoes*/
@@ -323,7 +327,8 @@ void manualControl(){
 	}
 }
 
- /*movimenta a caneta*/
+/*movimenta a caneta*/
+/* dir '+' = desce; dir '-' =  sobe*/
 void runCaneta(int passos, char dir){
 	int times = 0;
 
@@ -379,6 +384,105 @@ void runCaneta(int passos, char dir){
 			bobina_caneta++;
 			Delayms(CANETA_SPEED);
 		}
+	}
+}
+
+/*marca um ponto com a caneta, abaixa e sobe*/
+void setFura(void){
+	runCaneta(301, '+');
+
+	runClockwise(32, 'x');
+	runClockwise(32, 'y');
+	runCounterclockwise2(64, 'x');
+	runCounterclockwise2(64, 'y');
+	runClockwise(32, 'x');
+	runClockwise(32, 'y');
+
+	Delayms(2);
+	runCaneta(300, '-');
+}
+
+/*abaixa em um passo a caneta*/
+void setAbaixaCaneta(void){
+	runCaneta(301, '+');
+	Delayms(2);
+}
+
+/*sobe em um passo a caneta*/
+void setSobeCaneta(void){
+	runCaneta(300, '-');
+	Delayms(2);
+}
+
+/*desenha um quadrado 3cm x 3 cm*/
+void setDesenhaQuadrado(void){
+	setAbaixaCaneta();
+	moveParaXY(30, 0, 'm');
+	moveParaXY(30, 30, 'm');
+	moveParaXY(0, 30, 'm');
+	moveParaXY(0, 0, 'm');
+	setSobeCaneta();
+}
+
+/*dado dois arrays com coordenadas x e y, perfura todos os pontos*/
+void setPerfura(float x[], float y[], int n){
+	int i = 0;
+	char str[20];
+
+	sprintf(str, "%d FUROS", n-i);
+	TM_HD44780_Clear();
+	TM_HD44780_Puts(0, 0, str);
+	TM_HD44780_Puts(0, 1, "RESTANTES");
+
+	for(; i<n; i++){
+		moveParaXY(x[i], y[i], 'm');
+		setFura();
+		sprintf(str, "%d FUROS", n-i);
+		TM_HD44780_Clear();
+		TM_HD44780_Puts(0, 0, str);
+		TM_HD44780_Puts(0, 1, "RESTANTES");
+
+	}
+	TM_HD44780_Clear();
+	TM_HD44780_Puts(0, 3, "PERFURACAO");
+	TM_HD44780_Puts(0, 5, "COMPLETA");
+}
+
+/*menu interativo com o usuário com escolha de modo automático ou manual*/
+/*APRIMORAR E TESTAR*/
+void menu(void){
+    int b1, b2, digital = 0;
+    int menu = 0;
+
+	while(!digital){
+        digital = readJSButton();
+        b1 = readButtons('1');
+        b2 = readButtons('2');
+
+        if(b1||b2){
+        	menu++;
+        	menu %= 2;
+        }
+
+        if(menu == 0){
+            TM_HD44780_Clear();
+            TM_HD44780_Puts(0, 0, "MODO AUTONOMO");
+            TM_HD44780_PutCustom(15, 0, 0);
+            TM_HD44780_Puts(0, 1, "MODO MANUAL");
+        }else if(menu == 1){
+            TM_HD44780_Clear();
+            TM_HD44780_Puts(0, 0, "MODO AUTONOMO");
+            TM_HD44780_Puts(0, 1, "MODO MANUAL");
+            TM_HD44780_PutCustom(15, 1, 0);
+        }
+    TM_HD44780_Clear();
+	}
+
+	if(menu == 0){
+		modoPerfuracao();
+		//setDesenhaQuadrado();
+	}else if(menu == 1){
+		manualControl();
 	}
 }
 
@@ -718,6 +822,46 @@ void atualizaDisplayDistancia(void){
 	TM_HD44780_Puts(3, 1, py_mm);
 }
 
+/*le uma string enviada pelo semihosting, a string deve ser terminada em '@' */
+void readStringSH(char *str){
+	int i = 0;
+	do{
+		str[i] = SH_GetChar();
+		i++;
+	}while(str[i-1] != '@');
+
+	str[i-1] = '\0';
+}
+
+/*recebe um .drill interpretado em txt via semihosting e perfura os pontos*/
+void modoPerfuracao(void){
+	float x[100], y[100];
+	int n = 0, i = 0;
+	char str[10];
+	readStringSH(str);
+
+	while(str[0] != '\0'){
+		x[i] = UB_String_DezStringToFloat(str);
+		readStringSH(str);
+		y[i] = UB_String_DezStringToFloat(str);
+		readStringSH(str);
+		i++;
+	}
+
+	for(;n<i;n++){
+		ftoa(str, x[n], 4, 0);
+		SH_SendString(str);
+		SH_SendString("\n\r");
+		ftoa(str, y[n], 4, 0);
+		SH_SendString(str);
+		SH_SendString("\n\r");
+	}
+
+	setPerfura(x, y, n);
+
+	return;
+}
+
 /*funcao para converter float em string*/
 void reverse(char* p, char* q){
 	char c;
@@ -790,102 +934,4 @@ char* ftoa(char* dest, double num, int afterPoint, int sign){
 
 	*p = '\0';
 	return dest;
-}
-
-/*marca um ponto com a caneta, abaixa e sobe*/
-void setFura(void){
-	runCaneta(301, '+');
-
-	runClockwise(32, 'x');
-	runClockwise(32, 'y');
-	runCounterclockwise2(64, 'x');
-	runCounterclockwise2(64, 'y');
-	runClockwise(32, 'x');
-	runClockwise(32, 'y');
-
-	Delayms(2);
-	runCaneta(300, '-');
-}
-
-/*abaixa em um passo a caneta*/
-void setAbaixaCaneta(void){
-	runCaneta(301, '+');
-	Delayms(2);
-}
-
-/*sobe em um passo a caneta*/
-void setSobeCaneta(void){
-	runCaneta(300, '-');
-	Delayms(2);
-}
-
-/*desenha um quadrado 3cm x 3 cm*/
-void setDesenhaQuadrado(void){
-	setAbaixaCaneta();
-	moveParaXY(30, 0, 'm');
-	moveParaXY(30, 30, 'm');
-	moveParaXY(0, 30, 'm');
-	moveParaXY(0, 0, 'm');
-	setSobeCaneta();
-}
-
-/*dado dois arrays com coordenadas x e y, perfura todos os pontos*/
-void setPerfura(float x[], float y[], int n){
-	int i = 0;
-	char str[20];
-
-	sprintf(str, "%d FUROS", n-i);
-	TM_HD44780_Clear();
-	TM_HD44780_Puts(0, 0, str);
-	TM_HD44780_Puts(0, 1, "RESTANTES");
-
-	for(; i<n; i++){
-		moveParaXY(x[i], y[i], 'm');
-		setFura();
-		sprintf(str, "%d FUROS", n-i);
-		TM_HD44780_Clear();
-		TM_HD44780_Puts(0, 0, str);
-		TM_HD44780_Puts(0, 1, "RESTANTES");
-
-	}
-	TM_HD44780_Clear();
-	TM_HD44780_Puts(0, 3, "PERFURACAO");
-	TM_HD44780_Puts(0, 5, "COMPLETA");
-}
-
-/*menu interativo com o usuário com escolha de modo automático ou manual*/
-/*APRIMORAR E TESTAR*/
-void menu(void){
-    int b1, b2, digital = 0;
-    int menu = 0;
-
-	while(!digital){
-        digital = readJSButton();
-        b1 = readButtons('1');
-        b2 = readButtons('2');
-
-        if(b1||b2){
-        	menu++;
-        	menu %= 2;
-        }
-
-        if(menu == 0){
-            TM_HD44780_Clear();
-            TM_HD44780_Puts(0, 0, "MODO AUTONOMO");
-            TM_HD44780_PutCustom(15, 0, 0);
-            TM_HD44780_Puts(0, 1, "MODO MANUAL");
-        }else if(menu == 1){
-            TM_HD44780_Clear();
-            TM_HD44780_Puts(0, 0, "MODO AUTONOMO");
-            TM_HD44780_Puts(0, 1, "MODO MANUAL");
-            TM_HD44780_PutCustom(15, 1, 0);
-        }
-    TM_HD44780_Clear();
-	}
-
-	if(menu == 0){
-		setDesenhaQuadrado();
-	}else if(menu == 1){
-		manualControl();
-	}
 }
