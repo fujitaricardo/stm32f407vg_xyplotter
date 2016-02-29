@@ -1,10 +1,10 @@
 /**
- *	Engenharia Eletrica - Universidade Estadual de Londrina
- *	Mesa xy automatizada microcontrolada com stm32f407vg
+ *  Engenharia Eletrica - Universidade Estadual de Londrina
+ *  Mesa xy automatizada microcontrolada com stm32f407vg
  *
- *	autor 		Ricardo Fujita; Guilherme Brandao da Silva; Giovani Augusto de Lima Freitas; Guilherme Almeida Pessoa
- *	version		v1.0
- *	ide			CooCox 1.7.7
+ *	autores     Giovani Augusto de Lima Freitas; Guilherme Almeida Pessoa; Guilherme Brandao da Silva; Ricardo Fujita
+ *	version     v1.0
+ *	ide         CooCox 1.7.7
  *
  */
 
