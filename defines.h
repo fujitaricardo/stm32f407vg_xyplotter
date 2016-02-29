@@ -23,25 +23,25 @@
 
 //pinagem motores
 #define MOTOR_PORT    GPIOE
-#define MOTOR_A_PIN1	GPIO_Pin_7
-#define	MOTOR_A_PIN2	GPIO_Pin_9
-#define	MOTOR_A_PIN3	GPIO_Pin_11
-#define	MOTOR_A_PIN4	GPIO_Pin_13
-#define MOTOR_B_PIN1	GPIO_Pin_8
-#define	MOTOR_B_PIN2	GPIO_Pin_10
-#define	MOTOR_B_PIN3	GPIO_Pin_12
-#define	MOTOR_B_PIN4	GPIO_Pin_14
+#define MOTOR_A_PIN1  GPIO_Pin_7
+#define	MOTOR_A_PIN2  GPIO_Pin_9
+#define	MOTOR_A_PIN3  GPIO_Pin_11
+#define	MOTOR_A_PIN4  GPIO_Pin_13
+#define MOTOR_B_PIN1  GPIO_Pin_8
+#define	MOTOR_B_PIN2  GPIO_Pin_10
+#define	MOTOR_B_PIN3  GPIO_Pin_12
+#define	MOTOR_B_PIN4  GPIO_Pin_14
 
-#define CANETA_PORT 	GPIOA
-#define CANETA_PIN1		GPIO_Pin_1
-#define CANETA_PIN2		GPIO_Pin_3
-#define CANETA_PIN3		GPIO_Pin_5
-#define CANETA_PIN4		GPIO_Pin_7
+#define CANETA_PORT   GPIOA
+#define CANETA_PIN1   GPIO_Pin_1
+#define CANETA_PIN2   GPIO_Pin_3
+#define CANETA_PIN3   GPIO_Pin_5
+#define CANETA_PIN4   GPIO_Pin_7
 
 //pinagem fim de curso
-#define END_PORT		GPIOB
-#define END1			GPIO_Pin_11
-#define END2			GPIO_Pin_12
+#define END_PORT  GPIOB
+#define END1      GPIO_Pin_11
+#define END2      GPIO_Pin_12
 
 //pinagem joystick
 #define JOYSTICK_PORT	GPIOC
