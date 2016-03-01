@@ -1,10 +1,10 @@
 /**
- *  Engenharia Eletrica - Universidade Estadual de Londrina
- *  Mesa xy automatizada microcontrolada com stm32f407vg
+ *	Engenharia Eletrica - Universidade Estadual de Londrina
+ *	Mesa xy automatizada microcontrolada com stm32f407vg
  *
- *	autores     Giovani Augusto de Lima Freitas; Guilherme Almeida Pessoa; Guilherme Brandao da Silva; Ricardo Fujita
- *	version     v1.0
- *	ide         CooCox 1.7.7
+ *	autor 		Ricardo Fujita; Guilherme Brandao da Silva; Giovani Augusto de Lima Freitas; Guilherme Almeida Pessoa
+ *	version		v1.0
+ *	ide			CooCox 1.7.7
  *
  */
 
@@ -127,8 +127,8 @@ void xyPlotterInit(){
     };
 
 	SystemInit();
-	TM_HD44780_Init(16, 2);
-    	TM_HD44780_CreateChar(0, &customChar[0]);
+    TM_HD44780_Init(16, 2);
+    TM_HD44780_CreateChar(0, &customChar[0]);
 	TM_HD44780_Puts(0, 0, "Init sensores...");
 	motorInit();
 	canetaInit();
@@ -141,9 +141,9 @@ void xyPlotterInit(){
 /*seleciona qual porta do ADC1 sera lida*/
 uint16_t readADC(uint8_t channel){
 	ADC_RegularChannelConfig(ADC1, channel, 1, ADC_SampleTime_480Cycles);
-	ADC_SoftwareStartConv(ADC1);				//comeca conversao no pino channel
-	while(ADC_GetFlagStatus(ADC1, ADC_FLAG_EOC) == RESET);	//espera conversao acabar
-	return ADC_GetConversionValue(ADC1);			//retorna valor lido
+	ADC_SoftwareStartConv(ADC1);								//comeca conversao no pino channel
+	while(ADC_GetFlagStatus(ADC1, ADC_FLAG_EOC) == RESET);		//espera conversao acabar
+	return ADC_GetConversionValue(ADC1);						//retorna valor lido
 }
 
 /*le o AD de um dos eixos analogicos do joystick*/
@@ -168,9 +168,9 @@ int posicaoJoystick(char eixo){
 	}
 
 	if(valor>3072){
-		return 1;	//sentido positivo
+		return -1;	//sentido positivo
 	}else if(valor<1024){
-		return -1;	//sentido negativo
+		return 1;	//sentido negativo
 	}else{
 		return 0;	//nao pressionado
 	}
@@ -391,12 +391,12 @@ void runCaneta(int passos, char dir){
 void setFura(void){
 	runCaneta(301, '+');
 
-	runClockwise(32, 'x');
+	/*runClockwise(32, 'x');
 	runClockwise(32, 'y');
 	runCounterclockwise2(64, 'x');
 	runCounterclockwise2(64, 'y');
 	runClockwise(32, 'x');
-	runClockwise(32, 'y');
+	runClockwise(32, 'y');*/
 
 	Delayms(2);
 	runCaneta(300, '-');
@@ -444,8 +444,8 @@ void setPerfura(float x[], float y[], int n){
 
 	}
 	TM_HD44780_Clear();
-	TM_HD44780_Puts(0, 3, "PERFURACAO");
-	TM_HD44780_Puts(0, 5, "COMPLETA");
+	TM_HD44780_Puts(3, 0, "PERFURACAO");
+	TM_HD44780_Puts(5, 1, "COMPLETA");
 }
 
 /*menu interativo com o usuário com escolha de modo automático ou manual*/
@@ -469,11 +469,13 @@ void menu(void){
             TM_HD44780_Puts(0, 0, "MODO AUTONOMO");
             TM_HD44780_PutCustom(15, 0, 0);
             TM_HD44780_Puts(0, 1, "MODO MANUAL");
+            Delayms(50);
         }else if(menu == 1){
             TM_HD44780_Clear();
             TM_HD44780_Puts(0, 0, "MODO AUTONOMO");
             TM_HD44780_Puts(0, 1, "MODO MANUAL");
             TM_HD44780_PutCustom(15, 1, 0);
+            Delayms(50);
         }
     TM_HD44780_Clear();
 	}
@@ -835,6 +837,8 @@ void readStringSH(char *str){
 
 /*recebe um .drill interpretado em txt via semihosting e perfura os pontos*/
 void modoPerfuracao(void){
+	TM_HD44780_Clear();
+	TM_HD44780_Puts(0, 0, "Aguardando dados");
 	float x[100], y[100];
 	int n = 0, i = 0;
 	char str[10];
@@ -857,7 +861,7 @@ void modoPerfuracao(void){
 		SH_SendString("\n\r");
 	}
 
-	setPerfura(x, y, n);
+	setPerfura(y, x, n);
 
 	return;
 }
